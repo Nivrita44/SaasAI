@@ -1,12 +1,11 @@
-import sql from "../configs/db.js";
-import OpenAI from 'openai';
 import { clerkClient } from '@clerk/express';
 import axios from "axios";
 import { v2 as cloudinary } from 'cloudinary';
 import FormData from "form-data";
 import fs from 'fs';
+import OpenAI from 'openai';
 import pdf from 'pdf-parse/lib/pdf-parse.js';
-
+import sql from "../configs/db.js";
 
 
 
@@ -14,135 +13,213 @@ const client = new OpenAI({
     apiKey: process.env.GEMINI_API_KEY,
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
 });
+
 export const generateArticle = async(req, res) => {
     try {
-
         const { userId } = await req.auth();
         const { prompt, length } = req.body;
         const plan = req.plan;
         const free_usage = req.free_usage;
 
-        if (plan === 'free' && free_usage >= 10) {
+        if (plan !== 'premium' && free_usage >= 10) {
             return res.json({ success: false, message: 'Free usage limit reached. Upgrade to premium for more requests.' });
         }
 
+        console.log("Request body:", req.body);
+        const maxTokens = length * 2; // increase token limit
         const response = await client.chat.completions.create({
-            model: "gemini-2.5-flash",
-            messages: [
-
-                {
-                    role: "user",
-                    content: prompt,
-
-                }
-            ],
+            model: "gemini-2.0-flash",
+            messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
-            max_tokens: length,
+            max_tokens: maxTokens
+        });
 
-        })
-        const content = response.choices[0].message.content;
+        // safe content extraction in single line to avoid VS Code formatting issues
+        const content = response && response.candidates && response.candidates[0] && response.candidates[0].content || response && response.choices && response.choices[0] && response.choices[0].message && response.choices[0].message.content;
 
-        await sql `INSERT INTO creations (user_id, prompt, content,type) VALUES (${userId},${prompt},${content},'article')`;
+        if (!content || content.trim() === '') {
+            console.log("Full API response:", response);
+            return res.status(500).json({
+                success: false,
+                message: "AI did not generate any content. Try again."
+            });
+        }
+
+        await sql `INSERT INTO creations (user_id, prompt, content, type) VALUES (${userId}, ${prompt}, ${content || ''}, 'article')`;
 
         if (plan !== 'premium') {
             await clerkClient.users.updateUserMetadata(userId, {
-                privateMetadata: {
-                    free_usage: free_usage + 1
-                }
+                privateMetadata: { free_usage: free_usage + 1 }
             });
         }
+
         res.json({ success: true, content });
     } catch (error) {
         console.log(error.message);
         res.json({ success: false, message: error.message });
     }
 }
+
+
+// export const generateBlogTitle = async(req, res) => {
+//     try {
+//         const { userId } = await req.auth();
+//         const { prompt } = req.body;
+//         const plan = req.plan;
+//         const free_usage = req.free_usage;
+
+//         if (plan !== 'premium' && free_usage >= 10) {
+//             return res.json({ success: false, message: 'Free usage limit reached. Upgrade to premium for more requests.' });
+//         }
+
+//         console.log("Request body:", req.body);
+//         const maxTokens = 150; // increase token limit
+//         const response = await client.chat.completions.create({
+//             model: "gemini-2.5-flash",
+//             messages: [{ role: "user", content: prompt }],
+//             temperature: 0.5,
+//             max_tokens: maxTokens
+//         });
+
+//         let content = '';
+
+//         if (
+//             response &&
+//             response.candidates &&
+//             response.candidates[0] &&
+//             response.candidates[0].content &&
+//             response.candidates[0].content.parts
+//         ) {
+//             content = response.candidates[0].content.parts
+//                 .map(part => (part.text ? part.text : ''))
+//                 .join(' ');
+//         } else if (
+//             response &&
+//             response.choices &&
+//             response.choices[0] &&
+//             response.choices[0].message &&
+//             response.choices[0].message.content
+//         ) {
+//             content = response.choices[0].message.content;
+//         }
+
+
+//         if (!content || content.trim() === '') {
+//             console.log("Full API response:", response);
+//             return res.json({
+//                 success: false,
+//                 message: "AI did not generate any content. Try a slightly different prompt."
+//             });
+//         }
+
+//         await sql `
+//       INSERT INTO creations (user_id, prompt, content, type)
+//       VALUES (${userId}, ${prompt}, ${content || ''}, 'blog-title')
+//     `;
+//         console.log("Choice 0:", JSON.stringify(response.choices[0], null, 2));
+
+
+//         if (plan !== 'premium') {
+//             await clerkClient.users.updateUserMetadata(userId, {
+//                 privateMetadata: { free_usage: free_usage + 1 }
+//             });
+//         }
+
+//         res.json({ success: true, content });
+
+//     } catch (error) {
+//         console.log(error.message);
+//         res.json({ success: false, message: error.message });
+//     }
+// };
 
 export const generateBlogTitle = async(req, res) => {
     try {
-
-        const { userId } = await req.auth();
         const { prompt } = req.body;
-        const plan = req.plan;
-        const free_usage = req.free_usage;
+        console.log("Request body:", req.body);
 
-        if (plan === 'free' && free_usage >= 10) {
-            return res.json({ success: false, message: 'Free usage limit reached. Upgrade to premium for more requests.' });
+        if (!prompt || prompt.trim() === "") {
+            return res.status(400).json({ error: "Prompt is required." });
         }
+
+        const maxTokens = 300; // higher token limit for full content
 
         const response = await client.chat.completions.create({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.0-flash",
             messages: [
-
-                {
-                    role: "user",
-                    content: prompt,
-
-                }
+                { role: "system", content: "You are a creative blog title generator." },
+                { role: "user", content: prompt }
             ],
             temperature: 0.7,
-            max_tokens: 100,
+            max_tokens: maxTokens
+        });
 
-        })
-        const content = response.choices[0].message.content;
+        console.log("Full API response:", response);
 
-        await sql `INSERT INTO creations (user_id, prompt, content,type) VALUES (${userId},${prompt},${content},'blog_title')`;
+        // Safe extraction
+        let content = "";
+        if (response && response.candidates && response.candidates[0] && response.candidates[0].content) {
+            content = response.candidates[0].content;
+        } else if (response && response.choices && response.choices[0] && response.choices[0].message && response.choices[0].message.content) {
+            content = response.choices[0].message.content;
+        }
 
-        if (plan !== 'premium') {
-            await clerkClient.users.updateUserMetadata(userId, {
-                privateMetadata: {
-                    free_usage: free_usage + 1
-                }
+        if (!content || content.trim() === "") {
+            console.log("Empty content response:", response);
+            return res.status(500).json({
+                error: "AI did not generate any content. Try a slightly different prompt."
             });
         }
-        res.json({ success: true, content });
+
+        // Return the full response
+        return res.status(200).json({ result: content.trim() });
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+        console.error("Error generating blog title:", error);
+        return res.status(500).json({ error: "Failed to generate blog title" });
     }
-}
+};
+
+
+
+
+
+
 
 export const generateImage = async(req, res) => {
     try {
         const { userId } = req.auth();
         const { prompt, publish } = req.body;
         const plan = req.plan;
-
-        // Only premium users can generate images
         if (plan !== "premium") {
-            return res.status(403).json({
+            return res.json({
                 success: false,
                 message: "This feature is only available for premium users"
             });
         }
 
-        // Create form-data for ClipDrop
+
         const formData = new FormData();
         formData.append("prompt", prompt);
 
-        // ClipDrop request
-        const response = await axios.post(
+        const { data } = await axios.post(
             "https://clipdrop-api.co/text-to-image/v1",
             formData, {
                 headers: {
-                    ...formData.getHeaders(),
                     "x-api-key": process.env.CLIPDROP_API_KEY
                 },
                 responseType: "arraybuffer"
             }
         );
 
-        // Convert image to base64 and upload to Cloudinary
-        const base64Image = `data:image/png;base64,${Buffer.from(response.data, "binary").toString("base64")}`;
+        const base64Image = `data:image/png;base64,${Buffer.from(data, "binary").toString("base64")}`;
         const { secure_url } = await cloudinary.uploader.upload(base64Image);
 
-        // Save creation to DB
         await sql `INSERT INTO creations (user_id, prompt, content, type, publish)
               VALUES (${userId}, ${prompt}, ${secure_url}, 'image', ${publish ?? false})`;
 
         res.json({ success: true, content: secure_url });
     } catch (error) {
-        // Log full error for debugging
+
         if (error.response) {
             console.error("ClipDrop Error:", error.response.status, error.response.data.toString());
         } else {
@@ -276,3 +353,19 @@ export const resumeReview = async(req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
+
+
+   // const response = await client.chat.completions.create({
+        //     model: "gemini-2.5-flash",
+        //     messages: [
+        //         { role: "user", content: prompt }
+        //     ],
+        //     temperature: 0.7,
+        //     max_tokens: length,
+        // })
+
+
+        // const content = response.choices[0].message.content;
+        // console.log("Generated content:", content);
+        // await sql `INSERT INTO creations (user_id, prompt, content,type) VALUES (${userId},${prompt},${content || ''},'article')`;
+        // await sql `INSERT INTO creations (user_id, prompt, content,type) VALUES (${userId},${prompt},${content || ''},'article')`;

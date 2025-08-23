@@ -6,6 +6,9 @@ import
 aiRouter
 from './routes/aiRoutes.js';
 import connectCloudinary from './configs/cloudinary.js';
+import userRouter from './routes/userRoutes.js';
+
+
 const app = express();
 
 await connectCloudinary()
@@ -19,8 +22,9 @@ app.use(clerkMiddleware());
 app.get('/', (req, res) => {
     res.send('Welcome to the server!');
 });
-app.use(requireAuth());
+// app.use(requireAuth());
 app.use('/api/ai', aiRouter);
+app.use('/api/ai', userRouter);
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
