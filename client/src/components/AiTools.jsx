@@ -4,34 +4,58 @@ import { useNavigate } from 'react-router-dom'
 import { useUser } from '@clerk/clerk-react'
 
 const AiTools = () => {
-
     const navigate = useNavigate()
-    const user =useUser()
-  return (
+    const user = useUser()
 
-    <div className='px-4 sm:px-20 xl:px-32 my-24'>
-        <div className='text-center'>
-            <h2 className='text-slate-700 text-[42px] font-semibold'>Powerful AI Tools</h2>
-            <p className='text-gray-500 max-w-lg mx-auto'>Everything you need to create ,enhance, and optimize your content with cutting edge AI technology</p>
+    return (
+        <div className='px-4 sm:px-20 xl:px-32 my-24'>
+            {/* Section Header */}
+            <div className='text-center mb-16'>
+                <h2 className='text-gray-900 text-4xl sm:text-5xl font-bold'>Powerful AI Tools</h2>
+                <p className='text-gray-600 max-w-xl mx-auto mt-4 text-lg'>
+                    Create, enhance, and optimize your content with cutting-edge AI technology.
+                </p>
+            </div>
+
+            {/* Tools Grid */}
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8'>
+                {AiToolsData.map((tool, index) => {
+                    // New vibrant gradient palette
+                    const gradients = [
+                        ['#FF6B6B', '#FFD93D'], // red → yellow
+                        ['#6BCB77', '#4D96FF'], // green → blue
+                        ['#FF6AD5', '#FF8C42'], // pink → orange
+                        ['#845EC2', '#00C9A7'], // purple → teal
+                        ['#FF9671', '#FFC75F'], // peach → yellow
+                        ['#00C2FF', '#7F00FF']  // cyan → violet
+                    ];
+                    const gradient = gradients[index % gradients.length];
+
+                    return (
+                        <div 
+                            key={index}
+                            onClick={() => user && navigate(tool.path)}
+                            className='group bg-white rounded-2xl p-8 shadow-md hover:shadow-xl transition-shadow duration-300 cursor-pointer flex flex-col items-center text-center'
+                        >
+                            {/* Icon */}
+                            <div 
+                                className='w-16 h-16 flex items-center justify-center rounded-xl mb-6 transition-transform duration-300 group-hover:scale-110'
+                                style={{ background: `linear-gradient(to bottom right, ${gradient[0]}, ${gradient[1]})` }}
+                            >
+                                <tool.Icon className='w-8 h-8 text-white' />
+                            </div>
+
+                            {/* Title */}
+                            <h3 className='text-xl font-semibold text-gray-800 mb-2'>{tool.title}</h3>
+
+                            {/* Description */}
+                            <p className='text-gray-500 text-sm sm:text-base'>{tool.description}</p>
+                        </div>
+                    )
+                })}
+            </div>
         </div>
-
-      <div className='flex flex-wrap mt-10 justify-center'>
-        {AiToolsData.map((tool,index)=>(
-            <div key={index} className='p-8 m-4 max-w-xs rounded-lg bg-[#FDFDFE] 
-            shadow-lg border border-gray-100 hover:translate-y-1 transition-all duration-300 cursor-pointer' onClick={() => user && navigate(tool.path)}>
-            <div className='w-12 h-12 p-3 text-white rounded-xl' style={{background : `linear-gradient(to bottom, ${tool.bg.from}, ${tool.bg.to})`}}>
-            <tool.Icon className='w-full h-full text-white' />
-            </div>
-            <h3 className='mt-6 mb-3 text-lg font-semibold'>{tool.title}</h3>
-            <p className='text-gray-400 text-sm max-w-[95%]'>
-                {tool.description}
-            </p>
-            </div>
-
-        ))}
-      </div>
-    </div>
-  )
+    )
 }
 
 export default AiTools

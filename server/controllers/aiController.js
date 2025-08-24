@@ -236,7 +236,7 @@ export const generateImage = async(req, res) => {
 export const removeImageBackground = async(req, res) => {
     try {
         const { userId } = req.auth();
-        const { image } = req.file;
+        const image = req.file;
         const plan = req.plan;
 
         if (plan !== "premium") {
@@ -270,7 +270,7 @@ export const removeImageObject = async(req, res) => {
             const { userId } = req.auth();
             const { object } = req.body;
 
-            const { image } = req.file;
+            const image = req.file;
             const plan = req.plan;
 
             if (plan !== "premium") {
@@ -285,7 +285,7 @@ export const removeImageObject = async(req, res) => {
 
             const imageUrl = cloudinary.url(public_id, {
                 transformation: [{
-                    effect: `gen_remova:${object}`
+                    effect: `gen_remove:${object}`
                 }],
                 resource_type: 'image',
             })
@@ -301,71 +301,62 @@ export const removeImageObject = async(req, res) => {
     }
 };
 
-export const resumeReview = async(req, res) => {
-        try {
-            const { userId } = req.auth();
-            const resume = req.file;
-            const plan = req.plan;
+export const resumeReview = async (req, res) => {
+  try {
+    const { userId } = await req.auth();
+    const resume = req.file;
+    const plan = req.plan;
 
-            if (plan !== "premium") {
-                return res.json({
-                    success: false,
-                    message: "This feature is only available for premium users"
-                });
-            }
-
-            if(resume.size > 5 * 1024 * 1024){
-                return res.json({
-                    success: false,
-                    message: "File size should be less than 5MB"
-                });
-            } 
-
-            const dataBuffer = fs.readFileSync(resume.path);
-            const pdfData = await pdf(dataBuffer);
-
-            const prompt = `Review my resume and suggest improvements. Here is the content: ${pdfData.text}`;
-            const response = await client.chat.completions.create({
-            model: "gemini-2.5-flash",
-            messages: [
-
-                {
-                    role: "user",
-                    content: prompt,
-
-                }
-            ],
-            temperature: 0.7,
-            max_tokens: 1000,
-
-        })
-
-        const content = response.choices[0].message.content;
-
-            await sql `INSERT INTO creations (user_id, prompt, content, type)
-              VALUES (${userId},'Review the uploaded resume', ${content}, 'resume-review')
-        `;
-
-        res.json({ success: true, content });
-    } catch (error) {
-
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+    if (plan !== "premium") {
+      return res.json({
+        success: false,
+        message: "This feature is only available for premium users"
+      });
     }
+
+    if (resume.size > 5 * 1024 * 1024) {
+      return res.json({
+        success: false,
+        message: "File size should be less than 5MB"
+      });
+    }
+
+    // Read PDF content
+    const dataBuffer = fs.readFileSync(resume.path);
+    const pdfData = await pdf(dataBuffer);
+
+    const prompt = `Review my resume and suggest improvements. Here is the content: ${pdfData.text}`;
+    const response = await client.chat.completions.create({
+      model: "gemini-2.0-flash",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+
+    // Safe extraction of content
+    const content =
+      (response?.candidates?.[0]?.content) ||
+      (response?.choices?.[0]?.message?.content) ||
+      "";
+
+    if (!content || content.trim() === "") {
+      console.log("Full API response:", response);
+      return res.status(500).json({
+        success: false,
+        message: "AI did not generate any content. Try again."
+      });
+    }
+
+    // Insert safely into DB
+    await sql`
+      INSERT INTO creations (user_id, prompt, content, type)
+      VALUES (${userId}, 'Review the uploaded resume', ${content}, 'resume-review')
+    `;
+
+    res.json({ success: true, content });
+
+  } catch (error) {
+    console.log(error.message);
+    res.json({ success: false, message: error.message });
+  }
 };
-
-
-   // const response = await client.chat.completions.create({
-        //     model: "gemini-2.5-flash",
-        //     messages: [
-        //         { role: "user", content: prompt }
-        //     ],
-        //     temperature: 0.7,
-        //     max_tokens: length,
-        // })
-
-
-        // const content = response.choices[0].message.content;
-        // console.log("Generated content:", content);
-        // await sql `INSERT INTO creations (user_id, prompt, content,type) VALUES (${userId},${prompt},${content || ''},'article')`;
-        // await sql `INSERT INTO creations (user_id, prompt, content,type) VALUES (${userId},${prompt},${content || ''},'article')`;
