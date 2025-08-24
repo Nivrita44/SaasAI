@@ -17,17 +17,15 @@ const BlogTitles = () => {
     const [input,setInput] = useState('');
 
     const [loading, setLoading] = useState(false);
-const [content, setContent] = useState('');
+    const [content, setContent] = useState('');
 
 
-const {getToken} = useAuth()
+    const {getToken} = useAuth()
 
     const onSubmitHandler = async (e) =>{
         e.preventDefault()
         try {setLoading(true);
           const prompt = `Generate blog title for the keyword "${input}" in the category "${selectedCategory}"`;
-;
-;
           
           const { data } = await axios.post('/api/ai/generate-blog-title',
     { prompt },
