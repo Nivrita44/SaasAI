@@ -20,8 +20,7 @@ export const assets = {
     arrow_icon,
 };
 
-export const AiToolsData = [
-    {
+export const AiToolsData = [{
         title: 'AI Article Writer',
         description: 'Generate high-quality, engaging articles on any topic with our AI writing technology.',
         Icon: SquarePen,
@@ -40,7 +39,7 @@ export const AiToolsData = [
         description: 'Create stunning visuals with our AI image generation tool, Experience the power of AI ',
         Icon: Image,
         bg: { from: '#20C363', to: '#11B97E' },
-        path: '/ai/generate-images'
+        path: '/ai/generate-image'
     },
     {
         title: 'Background Removal',
@@ -65,8 +64,7 @@ export const AiToolsData = [
     }
 ]
 
-export const dummyTestimonialData = [
-    {
+export const dummyTestimonialData = [{
         image: assets.profile_img_1,
         name: 'John Doe',
         title: 'Marketing Director, TechCorp',
@@ -90,8 +88,7 @@ export const dummyTestimonialData = [
 ]
 
 
-export const dummyCreationData = [
-    {
+export const dummyCreationData = [{
         "id": 9,
         "user_id": "user_2yMX02PRbyMtQK6PebpjnxvRNIA",
         "prompt": "Generate a blog title for the keyword blog in the category Technology.",
@@ -127,8 +124,7 @@ export const dummyCreationData = [
 ]
 
 
-export const dummyPublishedCreationData = [
-    {
+export const dummyPublishedCreationData = [{
         "id": 1,
         "user_id": "user_2yMX02PRbyMtQK6PebpjnxvRNIA",
         "prompt": "Generate an image of A Boy is on Boat , and fishing in the style Anime style.",
